@@ -55,7 +55,7 @@ function GameContent() {
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
-            setIsPlaying(false);
+            // setIsPlaying(false) nie jest potrzebne, bo onPause to obsłuży
         }
     }, [currentTrack]);
 
@@ -80,23 +80,22 @@ function GameContent() {
     const togglePlay = () => {
         if (!audioRef.current || !currentTrack?.previewUrl) return;
 
-        if (isPlaying) {
-            audioRef.current.pause();
-        } else {
+        if (audioRef.current.paused) {
             audioRef.current.play().catch(e => console.error("Playback error:", e));
+        } else {
+            audioRef.current.pause();
         }
-        setIsPlaying(!isPlaying);
     };
 
-    const handleAudioEnded = () => {
-        setIsPlaying(false);
-    };
+    // Handlery zdarzeń audio do synchronizacji stanu
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleAudioEnded = () => setIsPlaying(false);
 
     const handleReveal = () => {
         setGameState('REVEALED');
         if (audioRef.current) {
             audioRef.current.pause();
-            setIsPlaying(false);
         }
     };
 
@@ -204,6 +203,8 @@ function GameContent() {
                                     <audio
                                         ref={audioRef}
                                         src={currentTrack.previewUrl}
+                                        onPlay={handlePlay}
+                                        onPause={handlePause}
                                         onEnded={handleAudioEnded}
                                         className="hidden"
                                     />
