@@ -97,6 +97,7 @@ function GameContent() {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
             audioRef.current.volume = volume;
+            audioRef.current.load(); // Wymuś przeładowanie źródła
         }
         setIsPlaying(false);
         setProgress(0);
@@ -281,6 +282,7 @@ function GameContent() {
                                 <>
                                     <audio
                                         ref={audioRef}
+                                        key={currentTrack.id} // Wymuszamy odświeżenie elementu audio przy zmianie utworu
                                         src={currentTrack.previewUrl}
                                         onPlay={handlePlay}
                                         onPause={handlePause}
