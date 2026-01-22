@@ -31,6 +31,7 @@ function GameContent() {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [volume, setVolume] = useState(0.5);
+    const [progress, setProgress] = useState(0);
 
     // Scores
     const [teams, setTeams] = useState<TeamScore[]>([]);
@@ -66,8 +67,12 @@ function GameContent() {
         const initQueue = async () => {
              const tracks = await fetchPlaylistTracks(playlistId);
              if (tracks.length > 0) {
+                 // Deduplicate
+                 const uniqueTracks = tracks.filter((item, index, self) =>
+                    index === self.findIndex((t) => t.id === item.id)
+                 );
                  // Shuffle
-                 const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+                 const shuffled = [...uniqueTracks].sort(() => Math.random() - 0.5);
                  setQueue(shuffled);
                  setIsQueueLoaded(true);
              } else {
@@ -94,6 +99,7 @@ function GameContent() {
             audioRef.current.volume = volume;
         }
         setIsPlaying(false);
+        setProgress(0);
     }, [currentTrack]);
 
     useEffect(() => {
@@ -149,10 +155,17 @@ function GameContent() {
 
     // Limit duration check
     const handleTimeUpdate = () => {
-        if (audioRef.current && audioRef.current.currentTime >= duration) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-            setIsPlaying(false);
+        if (audioRef.current) {
+            const current = audioRef.current.currentTime;
+            const percentage = Math.min((current / duration) * 100, 100);
+            setProgress(percentage);
+
+            if (current >= duration) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                setIsPlaying(false);
+                setProgress(0);
+            }
         }
     };
 
@@ -294,6 +307,22 @@ function GameContent() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Progress Bar */}
+                         {currentTrack.previewUrl && (
+                            <div className="w-64 mt-4 mb-2">
+                                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                                    <span>0s</span>
+                                    <span>{duration}s</span>
+                                </div>
+                                <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                                    <div
+                                        className="bg-pink-500 h-full transition-all duration-100 ease-linear"
+                                        style={{ width: `${progress}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Volume Control */}
                         {currentTrack.previewUrl && (
