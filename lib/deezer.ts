@@ -19,10 +19,17 @@ export async function getTrackDetails(trackId: string): Promise<Partial<TrackInf
         const response = await axios.get(`https://api.deezer.com/track/${trackId}`);
         if (response.data && !response.data.error) {
             const t = response.data;
+
+            let artistName = t.artist.name;
+            if (t.contributors && Array.isArray(t.contributors) && t.contributors.length > 0) {
+                artistName = t.contributors.map((c: any) => c.name).join(', ');
+            }
+
             return {
                 year: t.release_date ? t.release_date.substring(0, 4) : 'N/A',
                 // Możemy też uściślić album
-                album: t.album ? t.album.title : undefined
+                album: t.album ? t.album.title : undefined,
+                artist: artistName
             };
         }
     } catch (e) {

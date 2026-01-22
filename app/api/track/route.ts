@@ -4,12 +4,22 @@ import { getDeezerPlaylist, getTrackDetails } from '@/lib/deezer';
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const playlistId = searchParams.get('playlistId');
-
-  if (!playlistId) {
-    return NextResponse.json({ error: 'Missing playlistId parameter' }, { status: 400 });
-  }
+  const trackId = searchParams.get('trackId');
 
   try {
+    if (trackId) {
+        // Fetch details for a specific track
+        const details = await getTrackDetails(trackId);
+        if (!details) {
+            return NextResponse.json({ error: 'Failed to fetch track details' }, { status: 404 });
+        }
+        return NextResponse.json(details);
+    }
+
+    if (!playlistId) {
+        return NextResponse.json({ error: 'Missing playlistId parameter' }, { status: 400 });
+    }
+
     // 1. Pobierz utwory z playlisty Deezer
     const tracks = await getDeezerPlaylist(playlistId);
 
@@ -36,7 +46,8 @@ export async function GET(request: NextRequest) {
     const finalTrack = {
         ...randomTrack,
         year: details?.year || 'N/A',
-        album: details?.album || randomTrack.album
+        album: details?.album || randomTrack.album,
+        artist: details?.artist || randomTrack.artist
     };
 
     return NextResponse.json(finalTrack);

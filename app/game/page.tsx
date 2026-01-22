@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ExtendedTrackInfo, fetchRandomTrack } from '@/lib/game-service';
+import { ExtendedTrackInfo, fetchPlaylistTracks, fetchTrackDetails } from '@/lib/game-service';
 import { Loader2, Music, CheckCircle2, Trophy, RotateCcw, Play, Pause, Volume2 } from 'lucide-react';
 
 type GameState = 'LOADING' | 'READY' | 'PLAYING' | 'REVEALED' | 'GAME_OVER';
@@ -22,6 +22,10 @@ function GameContent() {
     const [gameState, setGameState] = useState<GameState>('LOADING');
     const [currentTrack, setCurrentTrack] = useState<ExtendedTrackInfo | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // Playlist queue
+    const [queue, setQueue] = useState<ExtendedTrackInfo[]>([]);
+    const [isQueueLoaded, setIsQueueLoaded] = useState(false);
 
     // Audio Player State
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -57,9 +61,30 @@ function GameContent() {
             setError("Brak ID playlisty.");
             return;
         }
-        loadNextRound();
+
+        // Initialize Queue
+        const initQueue = async () => {
+             const tracks = await fetchPlaylistTracks(playlistId);
+             if (tracks.length > 0) {
+                 // Shuffle
+                 const shuffled = [...tracks].sort(() => Math.random() - 0.5);
+                 setQueue(shuffled);
+                 setIsQueueLoaded(true);
+             } else {
+                 setError("Nie udało się pobrać utworów z playlisty.");
+             }
+        };
+
+        initQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [playlistId]);
+
+    useEffect(() => {
+        if (isQueueLoaded) {
+            loadNextRound();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isQueueLoaded]);
 
     // Resetuj odtwarzacz przy zmianie utworu
     useEffect(() => {
@@ -83,17 +108,28 @@ function GameContent() {
         setError(null);
         setPoints({ title: false, artist: false, album: false, year: false, popularity: false });
 
-        if (playlistId) {
-            const track = await fetchRandomTrack(playlistId);
-            if (track) {
-                // Nawet jak nie ma preview, pozwalamy grać (może host puści z innego źródła?)
-                // Ale komunikat o braku preview wyświetlimy w UI playera
-                setCurrentTrack(track);
-                setGameState('READY');
-            } else {
-                setError("Nie udało się pobrać utworu. Sprawdź czy playlista jest publiczna i ma utwory.");
+        if (queue.length === 0) {
+            if (isQueueLoaded) {
+                 setWinner("KONIEC GRY (Brak utworów)"); // Or handle draw/end
+                 setGameState('GAME_OVER');
             }
+            return;
         }
+
+        const nextTrackBasic = queue[0];
+        const remainingQueue = queue.slice(1);
+        setQueue(remainingQueue);
+
+        // Fetch details for the track (year, full artists)
+        const details = await fetchTrackDetails(nextTrackBasic.id);
+
+        const fullTrack: ExtendedTrackInfo = {
+            ...nextTrackBasic,
+            ...(details || {})
+        };
+
+        setCurrentTrack(fullTrack);
+        setGameState('READY');
     };
 
     const togglePlay = () => {
