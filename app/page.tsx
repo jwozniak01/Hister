@@ -2,29 +2,35 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PREDEFINED_PLAYLISTS } from '@/lib/constants';
 import { Play } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
 
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState(PREDEFINED_PLAYLISTS[0].id);
   const [customPlaylistUrl, setCustomPlaylistUrl] = useState('');
   const [winningScore, setWinningScore] = useState(20);
-  const [isCustom, setIsCustom] = useState(false);
 
   const startGame = () => {
-    let playlistId = selectedPlaylistId;
+    let playlistId = '';
 
-    if (isCustom && customPlaylistUrl) {
+    if (customPlaylistUrl) {
       // Wyciągnij ID z linku (np. https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=...)
+      // Obsługa różnych formatów linków spotify
       const match = customPlaylistUrl.match(/playlist\/([a-zA-Z0-9]+)/);
       if (match && match[1]) {
         playlistId = match[1];
       } else {
-        alert("Nieprawidłowy link do playlisty Spotify");
-        return;
+         // Fallback: może user wpisał samo ID?
+         if (customPlaylistUrl.length > 15 && !customPlaylistUrl.includes('/')) {
+             playlistId = customPlaylistUrl;
+         } else {
+             alert("Nieprawidłowy link do playlisty Spotify");
+             return;
+         }
       }
+    } else {
+        alert("Wklej link do playlisty!");
+        return;
     }
 
     // Przekazujemy ustawienia w URL do strony gry
@@ -43,45 +49,17 @@ export default function Home() {
 
           {/* Wybór playlisty */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Wybierz kategorię muzyczną</label>
-            <div className="flex space-x-4 mb-4">
-               <button
-                onClick={() => setIsCustom(false)}
-                className={`flex-1 py-2 rounded-lg font-medium transition ${!isCustom ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
-               >
-                 Gotowe Kategorie
-               </button>
-               <button
-                onClick={() => setIsCustom(true)}
-                className={`flex-1 py-2 rounded-lg font-medium transition ${isCustom ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
-               >
-                 Własna Playlista
-               </button>
+            <label className="block text-sm font-medium text-gray-300 mb-3">Link do Playlisty Spotify</label>
+            <div>
+                <input
+                    type="text"
+                    placeholder="Wklej link (https://open.spotify.com/playlist/...)"
+                    value={customPlaylistUrl}
+                    onChange={(e) => setCustomPlaylistUrl(e.target.value)}
+                    className="w-full p-4 rounded-lg bg-gray-900 border border-gray-600 focus:border-purple-500 focus:outline-none text-white placeholder-gray-500 transition-all"
+                />
+                <p className="text-xs text-gray-500 mt-2">Playlista musi być publiczna.</p>
             </div>
-
-            {!isCustom ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {PREDEFINED_PLAYLISTS.map(pl => (
-                        <button
-                            key={pl.id}
-                            onClick={() => setSelectedPlaylistId(pl.id)}
-                            className={`p-3 rounded-lg border text-left transition ${selectedPlaylistId === pl.id ? 'border-purple-500 bg-purple-500/20 text-white' : 'border-gray-600 bg-gray-700/50 text-gray-300 hover:border-gray-500'}`}
-                        >
-                            {pl.name}
-                        </button>
-                    ))}
-                </div>
-            ) : (
-                <div>
-                    <input
-                        type="text"
-                        placeholder="Wklej link do playlisty Spotify (np. https://open.spotify.com/playlist/...)"
-                        value={customPlaylistUrl}
-                        onChange={(e) => setCustomPlaylistUrl(e.target.value)}
-                        className="w-full p-4 rounded-lg bg-gray-900 border border-gray-600 focus:border-purple-500 focus:outline-none text-white placeholder-gray-500"
-                    />
-                </div>
-            )}
           </div>
 
           {/* Wybór punktów */}

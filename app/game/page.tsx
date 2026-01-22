@@ -1,10 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { QRCodeSVG } from 'qrcode.react';
 import { ExtendedTrackInfo, fetchRandomTrack } from '@/lib/game-service';
-import { Loader2, Music, CheckCircle2, Trophy, RotateCcw } from 'lucide-react';
+import { Loader2, Music, CheckCircle2, Trophy, RotateCcw, Play, Pause } from 'lucide-react';
 
 type GameState = 'LOADING' | 'READY' | 'PLAYING' | 'REVEALED' | 'GAME_OVER';
 
@@ -22,10 +21,14 @@ function GameContent() {
     const [currentTrack, setCurrentTrack] = useState<ExtendedTrackInfo | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // Audio Player State
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+
     // Scores
     const [teamA, setTeamA] = useState<TeamScore>({ name: 'Drużyna A', score: 0 });
     const [teamB, setTeamB] = useState<TeamScore>({ name: 'Drużyna B', score: 0 });
-    const [currentTeamTurn, setCurrentTeamTurn] = useState<'A' | 'B'>('A'); // Kto zgaduje?
+    const [currentTeamTurn, setCurrentTeamTurn] = useState<'A' | 'B'>('A');
 
     // Checkboxes for scoring
     const [points, setPoints] = useState({
@@ -38,7 +41,6 @@ function GameContent() {
 
     const [winner, setWinner] = useState<string | null>(null);
 
-    // Initial load
     useEffect(() => {
         if (!playlistId) {
             setError("Brak ID playlisty.");
@@ -48,43 +50,54 @@ function GameContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [playlistId]);
 
+    // Resetuj odtwarzacz przy zmianie utworu
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            setIsPlaying(false);
+        }
+    }, [currentTrack]);
+
     const loadNextRound = async () => {
         setGameState('LOADING');
         setError(null);
         setPoints({ title: false, artist: false, album: false, year: false, popularity: false });
 
-        // Zmień turę (opcjonalnie, lub host decyduje - tu zrobimy naprzemiennie)
-        // Jeśli to pierwsza runda, A zgaduje. W kolejnych zmiana.
-        // Ale uwaga: jeśli gra się kończy, to reset.
-        // Tutaj prosta logika: zmiana tury następuje po zatwierdzeniu punktów.
-
         if (playlistId) {
             const track = await fetchRandomTrack(playlistId);
             if (track) {
-                if (!track.previewUrl) {
-                    // Spróbuj jeszcze raz (prosty retry)
-                    const retryTrack = await fetchRandomTrack(playlistId);
-                    if (retryTrack && retryTrack.previewUrl) {
-                        setCurrentTrack(retryTrack);
-                        setGameState('READY');
-                    } else if (track) {
-                         // Trudno, pokazujemy bez preview (błąd logiczny ale obsłużony)
-                         setCurrentTrack(track);
-                         setError("Nie udało się znaleźć fragmentu audio dla tego utworu. Spróbuj 'Następny'.");
-                         setGameState('READY');
-                    }
-                } else {
-                    setCurrentTrack(track);
-                    setGameState('READY');
-                }
+                // Nawet jak nie ma preview, pozwalamy grać (może host puści z innego źródła?)
+                // Ale komunikat o braku preview wyświetlimy w UI playera
+                setCurrentTrack(track);
+                setGameState('READY');
             } else {
-                setError("Nie udało się pobrać utworu. Sprawdź konfigurację API.");
+                setError("Nie udało się pobrać utworu. Sprawdź czy playlista jest publiczna i ma utwory.");
             }
         }
     };
 
+    const togglePlay = () => {
+        if (!audioRef.current || !currentTrack?.previewUrl) return;
+
+        if (isPlaying) {
+            audioRef.current.pause();
+        } else {
+            audioRef.current.play().catch(e => console.error("Playback error:", e));
+        }
+        setIsPlaying(!isPlaying);
+    };
+
+    const handleAudioEnded = () => {
+        setIsPlaying(false);
+    };
+
     const handleReveal = () => {
         setGameState('REVEALED');
+        if (audioRef.current) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        }
     };
 
     const submitPoints = () => {
@@ -116,13 +129,6 @@ function GameContent() {
         }
 
         loadNextRound();
-    };
-
-    const getPlayUrl = () => {
-        if (!currentTrack?.previewUrl) return '';
-        if (typeof window === 'undefined') return '';
-        // Kodujemy URL preview, żeby przekazać go do playera
-        return `${window.location.origin}/play?url=${encodeURIComponent(currentTrack.previewUrl)}`;
     };
 
     if (error) {
@@ -188,15 +194,35 @@ function GameContent() {
                     <div className="flex flex-col items-center space-y-10 w-full max-w-2xl animate-in fade-in zoom-in duration-500">
                         <div className="text-center space-y-2">
                              <h2 className="text-3xl font-bold">Tura: <span className={currentTeamTurn === 'A' ? 'text-blue-400' : 'text-red-400'}>{currentTeamTurn === 'A' ? teamA.name : teamB.name}</span></h2>
-                             <p className="text-gray-400">Drużyna przeciwna skanuje kod i puszcza muzykę!</p>
+                             <p className="text-gray-400">Posłuchaj fragmentu i zgadnij!</p>
                         </div>
 
-                        <div className="bg-white p-6 rounded-3xl shadow-2xl">
+                        <div className="bg-gray-800 p-10 rounded-full shadow-2xl border-4 border-gray-700 flex items-center justify-center w-64 h-64 relative">
+                            {/* Player Interface */}
                             {currentTrack.previewUrl ? (
-                                <QRCodeSVG value={getPlayUrl()} size={300} level={"H"} includeMargin={true} />
+                                <>
+                                    <audio
+                                        ref={audioRef}
+                                        src={currentTrack.previewUrl}
+                                        onEnded={handleAudioEnded}
+                                        className="hidden"
+                                    />
+                                    <button
+                                        onClick={togglePlay}
+                                        className={`w-40 h-40 rounded-full flex items-center justify-center transition-all transform hover:scale-105 ${isPlaying ? 'bg-red-500 shadow-[0_0_30px_rgba(239,68,68,0.6)]' : 'bg-green-500 shadow-[0_0_30px_rgba(34,197,94,0.6)]'}`}
+                                    >
+                                        {isPlaying ? <Pause size={60} fill="white" /> : <Play size={60} fill="white" className="ml-2" />}
+                                    </button>
+
+                                    {/* Wizualizacja - pulsujący okrąg gdy gra */}
+                                    {isPlaying && (
+                                        <div className="absolute inset-0 rounded-full border-4 border-white/20 animate-ping"></div>
+                                    )}
+                                </>
                             ) : (
-                                <div className="w-[300px] h-[300px] bg-gray-200 flex items-center justify-center text-black font-bold text-center p-4">
-                                    Brak podglądu audio.<br/>Pomiń ten utwór.
+                                <div className="text-center text-gray-400">
+                                    <div className="font-bold text-red-400 mb-2">Brak audio</div>
+                                    <div className="text-xs">Nie znaleziono fragmentu :(</div>
                                 </div>
                             )}
                         </div>
@@ -221,8 +247,6 @@ function GameContent() {
                 {gameState === 'REVEALED' && currentTrack && (
                     <div className="w-full max-w-3xl animate-in slide-in-from-bottom-10 duration-500">
                         <div className="bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl mb-8 flex gap-8 items-center">
-                            {/* Tutaj mogłaby być okładka albumu, ale API Spotify nie zawsze daje publiczny URL bez tokenu w prosty sposób, choć mamy to w danych */}
-                            {/* Dla uproszczenia nie wyświetlamy obrazka, tylko dane tekstowe */}
                             <div className="flex-1 space-y-4">
                                 <div>
                                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Tytuł</div>
