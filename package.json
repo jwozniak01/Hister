@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "setup": "node scripts/setup-env.js"
+    "setup": "node scripts/setup-env.js",
+    "fix": "node scripts/fix-project.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
