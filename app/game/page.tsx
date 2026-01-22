@@ -16,6 +16,8 @@ function GameContent() {
     const searchParams = useSearchParams();
     const playlistId = searchParams.get('playlistId');
     const targetScore = parseInt(searchParams.get('targetScore') || '20', 10);
+    const teamCount = parseInt(searchParams.get('teamCount') || '2', 10);
+    const duration = parseInt(searchParams.get('duration') || '30', 10);
 
     const [gameState, setGameState] = useState<GameState>('LOADING');
     const [currentTrack, setCurrentTrack] = useState<ExtendedTrackInfo | null>(null);
@@ -27,9 +29,17 @@ function GameContent() {
     const [volume, setVolume] = useState(0.5);
 
     // Scores
-    const [teamA, setTeamA] = useState<TeamScore>({ name: 'Drużyna A', score: 0 });
-    const [teamB, setTeamB] = useState<TeamScore>({ name: 'Drużyna B', score: 0 });
-    const [currentTeamTurn, setCurrentTeamTurn] = useState<'A' | 'B'>('A');
+    const [teams, setTeams] = useState<TeamScore[]>([]);
+    const [currentTeamIndex, setCurrentTeamIndex] = useState(0);
+
+    // Initialize teams
+    useEffect(() => {
+        const initialTeams = Array.from({ length: teamCount }, (_, i) => ({
+            name: `Drużyna ${String.fromCharCode(65 + i)}`, // A, B, C, ...
+            score: 0
+        }));
+        setTeams(initialTeams);
+    }, [teamCount]);
 
     // Checkboxes for scoring
     const [points, setPoints] = useState({
@@ -101,6 +111,15 @@ function GameContent() {
     const handlePause = () => setIsPlaying(false);
     const handleAudioEnded = () => setIsPlaying(false);
 
+    // Limit duration check
+    const handleTimeUpdate = () => {
+        if (audioRef.current && audioRef.current.currentTime >= duration) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            setIsPlaying(false);
+        }
+    };
+
     const handleReveal = () => {
         setIsPlaying(false);
         setGameState('REVEALED');
@@ -117,26 +136,17 @@ function GameContent() {
         if (points.year) roundPoints++;
         if (points.popularity) roundPoints++;
 
-        if (currentTeamTurn === 'A') {
-            const newScore = teamA.score + roundPoints;
-            setTeamA({ ...teamA, score: newScore });
-            if (newScore >= targetScore) {
-                setWinner(teamA.name);
-                setGameState('GAME_OVER');
-                return;
-            }
-            setCurrentTeamTurn('B');
-        } else {
-            const newScore = teamB.score + roundPoints;
-            setTeamB({ ...teamB, score: newScore });
-            if (newScore >= targetScore) {
-                setWinner(teamB.name);
-                setGameState('GAME_OVER');
-                return;
-            }
-            setCurrentTeamTurn('A');
+        const newTeams = [...teams];
+        newTeams[currentTeamIndex].score += roundPoints;
+        setTeams(newTeams);
+
+        if (newTeams[currentTeamIndex].score >= targetScore) {
+            setWinner(newTeams[currentTeamIndex].name);
+            setGameState('GAME_OVER');
+            return;
         }
 
+        setCurrentTeamIndex((prev) => (prev + 1) % teams.length);
         loadNextRound();
     };
 
@@ -155,9 +165,12 @@ function GameContent() {
              <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white p-8 text-center">
                 <Trophy size={80} className="text-yellow-400 mb-6 animate-bounce" />
                 <h1 className="text-5xl font-black mb-4">WYGRYWA {winner}!</h1>
-                <div className="flex gap-8 text-2xl font-bold mb-8">
-                    <div className="text-blue-400">{teamA.name}: {teamA.score}</div>
-                    <div className="text-red-400">{teamB.name}: {teamB.score}</div>
+                <div className="flex gap-8 text-2xl font-bold mb-8 flex-wrap justify-center">
+                    {teams.map((team, index) => (
+                        <div key={index} className="text-gray-300">
+                            {team.name}: <span className="text-white">{team.score}</span>
+                        </div>
+                    ))}
                 </div>
                 <button onClick={() => window.location.href = '/'} className="bg-white text-black px-8 py-3 rounded-full font-bold hover:scale-105 transition">Wróć do Menu</button>
              </div>
@@ -167,24 +180,28 @@ function GameContent() {
     return (
         <div className="flex min-h-screen bg-gray-900 text-white font-sans overflow-hidden">
             {/* Lewy panel - Wyniki */}
-            <div className="w-1/4 bg-gray-800 p-6 flex flex-col justify-between border-r border-gray-700">
+            <div className="w-1/4 bg-gray-800 p-6 flex flex-col justify-between border-r border-gray-700 overflow-y-auto">
                 <div>
                     <h1 className="text-2xl font-black italic tracking-widest text-gray-500 mb-10">HISTER</h1>
 
-                    <div className={`p-6 rounded-2xl mb-6 transition-all ${currentTeamTurn === 'A' ? 'bg-blue-600/20 border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]' : 'bg-gray-700/30 border border-gray-600'}`}>
-                        <h2 className="text-gray-400 text-sm font-bold uppercase mb-1">Zgaduje</h2>
-                        <div className="text-3xl font-bold text-blue-400">{teamA.name}</div>
-                        <div className="text-5xl font-black mt-2">{teamA.score} <span className="text-lg text-gray-500 font-normal">/ {targetScore}</span></div>
-                    </div>
-
-                    <div className={`p-6 rounded-2xl mb-6 transition-all ${currentTeamTurn === 'B' ? 'bg-red-600/20 border-2 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-gray-700/30 border border-gray-600'}`}>
-                        <h2 className="text-gray-400 text-sm font-bold uppercase mb-1">Zgaduje</h2>
-                        <div className="text-3xl font-bold text-red-400">{teamB.name}</div>
-                        <div className="text-5xl font-black mt-2">{teamB.score} <span className="text-lg text-gray-500 font-normal">/ {targetScore}</span></div>
+                    <div className="space-y-4">
+                        {teams.map((team, index) => (
+                             <div key={index} className={`p-4 rounded-2xl transition-all ${currentTeamIndex === index ? 'bg-blue-600/20 border-2 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.5)]' : 'bg-gray-700/30 border border-gray-600'}`}>
+                                <h2 className="text-gray-400 text-xs font-bold uppercase mb-1">
+                                    {currentTeamIndex === index ? 'Zgaduje' : 'Czeka'}
+                                </h2>
+                                <div className={`text-xl font-bold ${currentTeamIndex === index ? 'text-blue-400' : 'text-gray-400'}`}>
+                                    {team.name}
+                                </div>
+                                <div className="text-3xl font-black mt-1">
+                                    {team.score} <span className="text-sm text-gray-500 font-normal">/ {targetScore}</span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                <div className="text-center text-gray-500 text-sm">
+                <div className="text-center text-gray-500 text-sm mt-4">
                     {gameState === 'LOADING' ? 'Losowanie utworu...' : 'Gra w toku'}
                 </div>
             </div>
@@ -199,11 +216,14 @@ function GameContent() {
                     </div>
                 )}
 
-                {(gameState === 'READY' || gameState === 'PLAYING') && currentTrack && (
+                {(gameState === 'READY' || gameState === 'PLAYING') && currentTrack && teams.length > 0 && (
                     <div className="flex flex-col items-center space-y-10 w-full max-w-2xl animate-in fade-in zoom-in duration-500">
                         <div className="text-center space-y-2">
-                             <h2 className="text-3xl font-bold">Tura: <span className={currentTeamTurn === 'A' ? 'text-blue-400' : 'text-red-400'}>{currentTeamTurn === 'A' ? teamA.name : teamB.name}</span></h2>
+                             <h2 className="text-3xl font-bold">Tura: <span className="text-blue-400">{teams[currentTeamIndex]?.name}</span></h2>
                              <p className="text-gray-400">Posłuchaj fragmentu i zgadnij!</p>
+                             <div className="text-xs font-mono bg-gray-800 px-2 py-1 rounded inline-block text-gray-500">
+                                Limit czasu: {duration}s
+                             </div>
                         </div>
 
                         <div className="bg-gray-800 p-10 rounded-full shadow-2xl border-4 border-gray-700 flex items-center justify-center w-64 h-64 relative">
@@ -216,6 +236,7 @@ function GameContent() {
                                         onPlay={handlePlay}
                                         onPause={handlePause}
                                         onEnded={handleAudioEnded}
+                                        onTimeUpdate={handleTimeUpdate}
                                         className="hidden"
                                     />
                                     <button

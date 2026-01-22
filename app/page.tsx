@@ -9,6 +9,8 @@ export default function Home() {
 
   const [customPlaylistUrl, setCustomPlaylistUrl] = useState('');
   const [winningScore, setWinningScore] = useState(20);
+  const [teamCount, setTeamCount] = useState(2);
+  const [duration, setDuration] = useState(30);
 
   const startGame = () => {
     let playlistId = '';
@@ -35,11 +37,11 @@ export default function Home() {
     }
 
     // Przekazujemy ustawienia w URL do strony gry
-    router.push(`/game?playlistId=${playlistId}&targetScore=${winningScore}`);
+    router.push(`/game?playlistId=${playlistId}&targetScore=${winningScore}&teamCount=${teamCount}&duration=${duration}`);
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-900 text-white">
+    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-900 text-white overflow-y-auto">
       <div className="w-full max-w-2xl text-center space-y-8">
         <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-2">
           HISTER
@@ -74,6 +76,44 @@ export default function Home() {
                         className={`flex-1 py-3 rounded-lg font-bold border transition ${winningScore === score ? 'bg-pink-600 border-pink-600 text-white' : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'}`}
                     >
                         {score} pkt
+                    </button>
+                ))}
+            </div>
+          </div>
+
+          {/* Liczba drużyn */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-3">Liczba drużyn</label>
+            <div className="flex justify-between gap-2">
+                {[2, 3, 4, 5, 6].map(count => (
+                    <button
+                        key={count}
+                        onClick={() => setTeamCount(count)}
+                        className={`flex-1 py-3 rounded-lg font-bold border transition ${teamCount === count ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'}`}
+                    >
+                        {count}
+                    </button>
+                ))}
+            </div>
+          </div>
+
+          {/* Długość fragmentu */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-3">Długość fragmentu</label>
+            <div className="flex justify-between gap-2">
+                {[
+                  { label: 'Max (30s)', value: 30 },
+                  { label: '20s', value: 20 },
+                  { label: '10s', value: 10 },
+                  { label: '5s', value: 5 },
+                  { label: '2s', value: 2 },
+                ].map(opt => (
+                    <button
+                        key={opt.value}
+                        onClick={() => setDuration(opt.value)}
+                        className={`flex-1 py-3 px-1 rounded-lg font-bold border transition text-sm ${duration === opt.value ? 'bg-purple-600 border-purple-600 text-white' : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'}`}
+                    >
+                        {opt.label}
                     </button>
                 ))}
             </div>
