@@ -55,11 +55,12 @@ function GameContent() {
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
-            // setIsPlaying(false) nie jest potrzebne, bo onPause to obsłuży
         }
+        setIsPlaying(false);
     }, [currentTrack]);
 
     const loadNextRound = async () => {
+        setIsPlaying(false);
         setGameState('LOADING');
         setError(null);
         setPoints({ title: false, artist: false, album: false, year: false, popularity: false });
@@ -93,6 +94,7 @@ function GameContent() {
     const handleAudioEnded = () => setIsPlaying(false);
 
     const handleReveal = () => {
+        setIsPlaying(false);
         setGameState('REVEALED');
         if (audioRef.current) {
             audioRef.current.pause();
