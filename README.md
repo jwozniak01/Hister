@@ -15,30 +15,36 @@ System wyświetla kod QR, który jedna drużyna skanuje, aby puścić fragment u
 - Node.js 18+
 - Konto Developer Spotify (darmowe) do uzyskania kluczy API.
 
-## Konfiguracja
+## Szybka Konfiguracja (Zalecane)
 
-1. Sklonuj repozytorium.
+1. Sklonuj repozytorium i wejdź do folderu.
 2. Zainstaluj zależności:
    ```bash
    npm install
    ```
-3. Skopiuj plik `.env.local.example` na `.env.local`:
+3. Uruchom konfigurator (zapyta o klucze Spotify):
    ```bash
-   cp .env.local.example .env.local
+   npm run setup
    ```
-4. Uzupełnij klucze w `.env.local`:
-   - Wejdź na [Spotify for Developers](https://developer.spotify.com/dashboard).
-   - Utwórz nową aplikację ("Create App").
-   - Skopiuj **Client ID** oraz **Client Secret**.
-   - Wklej je do pliku `.env.local`.
+   *(Klucze zdobędziesz na [Spotify for Developers](https://developer.spotify.com/dashboard) -> Create App)*
 
-## Uruchomienie
-
-```bash
-npm run dev
-```
+4. Uruchom grę:
+   ```bash
+   npm run dev
+   ```
 
 Aplikacja dostępna pod adresem: `http://localhost:3000`.
+
+## Konfiguracja Ręczna (Opcjonalnie)
+
+Jeśli wolisz ręcznie utworzyć plik:
+1. Utwórz plik `.env.local` w głównym katalogu projektu.
+2. Wklej do niego zawartość:
+   ```
+   SPOTIFY_CLIENT_ID=twoj_client_id
+   SPOTIFY_CLIENT_SECRET=twoj_client_secret
+   NEXT_PUBLIC_BASE_URL=http://localhost:3000
+   ```
 
 ## Jak grać?
 
