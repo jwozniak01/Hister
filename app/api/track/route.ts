@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPlaylistTracks } from '@/lib/spotify';
-import { getItunesPreview } from '@/lib/itunes';
+import { getDeezerPlaylist, getTrackDetails } from '@/lib/deezer';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -11,48 +10,36 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 1. Pobierz utwory z playlisty
-    const tracks = await getPlaylistTracks(playlistId);
+    // 1. Pobierz utwory z playlisty Deezer
+    const tracks = await getDeezerPlaylist(playlistId);
 
     if (tracks.length === 0) {
-      // Jeśli getPlaylistTracks zwróci pustą tablicę, to znaczy że albo playlista jest pusta,
-      // albo wystąpił błąd 404/403 w lib/spotify.ts (który łapie błędy i zwraca []).
-      // Zwracamy 404, aby frontend wiedział co robić.
       return NextResponse.json({
-        error: 'Nie znaleziono playlisty lub jest pusta. Sprawdź ID lub spróbuj innej kategorii.'
+        error: 'Nie znaleziono playlisty Deezer lub jest pusta. Sprawdź ID.'
       }, { status: 404 });
     }
 
     // 2. Wylosuj jeden utwór
-    // W prawdziwej grze warto by pamiętać historię, żeby nie losować tego samego,
-    // ale na potrzeby MVP losujemy.
-    let randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-    let finalPreviewUrl = randomTrack.previewUrl;
-    let attempts = 0;
+    // Filtrujemy tylko te z preview (Deezer zazwyczaj ma wszystkie, ale dla pewności)
+    const playableTracks = tracks.filter(t => t.previewUrl);
 
-    // Próba znalezienia utworu z preview (max 3 próby losowania)
-    while (!finalPreviewUrl && attempts < 3) {
-        if (!finalPreviewUrl) {
-            console.log(`Brak preview w Spotify dla "${randomTrack.title}", szukam w iTunes...`);
-            const itunesUrl = await getItunesPreview(randomTrack.artist, randomTrack.title);
-            if (itunesUrl) {
-                finalPreviewUrl = itunesUrl;
-            } else {
-                 // Jeśli nie ma w iTunes, spróbuj wylosować inny utwór z listy
-                 console.log(`Brak w iTunes też. Losuję inny...`);
-                 randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-                 finalPreviewUrl = randomTrack.previewUrl; // Resetujemy do tego co ma Spotify
-            }
-        }
-        attempts++;
+    if (playableTracks.length === 0) {
+        return NextResponse.json({ error: 'Ta playlista nie zawiera utworów z podglądem audio.' }, { status: 404 });
     }
 
-    // Jeśli po próbach nadal brak, zwracamy to co mamy (frontend obsłuży brak preview)
+    const randomTrack = playableTracks[Math.floor(Math.random() * playableTracks.length)];
 
-    return NextResponse.json({
-      ...randomTrack,
-      previewUrl: finalPreviewUrl
-    });
+    // 3. Pobierz szczegóły (rok wydania)
+    // Deezer playlist endpoint nie zwraca daty, więc robimy szybki fetch szczegółów
+    const details = await getTrackDetails(randomTrack.id);
+
+    const finalTrack = {
+        ...randomTrack,
+        year: details?.year || 'N/A',
+        album: details?.album || randomTrack.album
+    };
+
+    return NextResponse.json(finalTrack);
 
   } catch (error) {
     console.error('API Error:', error);

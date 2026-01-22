@@ -267,7 +267,7 @@ function GameContent() {
                                     </div>
                                 </div>
                                 <div>
-                                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Popularność Spotify</div>
+                                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Popularność Deezer</div>
                                      <div className="w-full bg-gray-700 rounded-full h-4 mt-1">
                                         <div className="bg-green-500 h-4 rounded-full" style={{width: `${currentTrack.popularity}%`}}></div>
                                      </div>

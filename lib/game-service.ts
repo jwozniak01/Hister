@@ -1,9 +1,7 @@
 import axios from 'axios';
-import { TrackInfo } from '@/lib/spotify';
+import { TrackInfo } from '@/lib/deezer';
 
-export interface ExtendedTrackInfo extends TrackInfo {
-    previewUrl?: string | null;
-}
+export type ExtendedTrackInfo = TrackInfo;
 
 export async function fetchRandomTrack(playlistId: string): Promise<ExtendedTrackInfo | null> {
     try {

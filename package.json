@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "setup": "node scripts/setup-env.js",
     "fix": "node scripts/fix-project.js"
   },
   "dependencies": {

@@ -14,17 +14,18 @@ export default function Home() {
     let playlistId = '';
 
     if (customPlaylistUrl) {
-      // Wyciągnij ID z linku (np. https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=...)
-      // Obsługa różnych formatów linków spotify
-      const match = customPlaylistUrl.match(/playlist\/([a-zA-Z0-9]+)/);
+      // Wyciągnij ID z linku (np. https://www.deezer.com/pl/playlist/1234567890)
+      // Obsługa formatu Deezer
+      const match = customPlaylistUrl.match(/playlist\/([0-9]+)/);
+
       if (match && match[1]) {
         playlistId = match[1];
       } else {
-         // Fallback: może user wpisał samo ID?
-         if (customPlaylistUrl.length > 15 && !customPlaylistUrl.includes('/')) {
+         // Fallback: czy user wpisał samo ID (same cyfry)?
+         if (/^\d+$/.test(customPlaylistUrl)) {
              playlistId = customPlaylistUrl;
          } else {
-             alert("Nieprawidłowy link do playlisty Spotify");
+             alert("Nieprawidłowy link do playlisty Deezer.\nUżyj formatu: https://www.deezer.com/pl/playlist/123456");
              return;
          }
       }
@@ -43,22 +44,22 @@ export default function Home() {
         <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-2">
           HISTER
         </h1>
-        <p className="text-xl text-gray-400">Turniej wiedzy muzycznej</p>
+        <p className="text-xl text-gray-400">Turniej wiedzy muzycznej (Powered by Deezer)</p>
 
         <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700 text-left space-y-6">
 
           {/* Wybór playlisty */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Link do Playlisty Spotify</label>
+            <label className="block text-sm font-medium text-gray-300 mb-3">Link do Playlisty Deezer</label>
             <div>
                 <input
                     type="text"
-                    placeholder="Wklej link (https://open.spotify.com/playlist/...)"
+                    placeholder="Wklej link (https://www.deezer.com/pl/playlist/...)"
                     value={customPlaylistUrl}
                     onChange={(e) => setCustomPlaylistUrl(e.target.value)}
                     className="w-full p-4 rounded-lg bg-gray-900 border border-gray-600 focus:border-purple-500 focus:outline-none text-white placeholder-gray-500 transition-all"
                 />
-                <p className="text-xs text-gray-500 mt-2">Playlista musi być publiczna.</p>
+                <p className="text-xs text-gray-500 mt-2">Playlista musi być publiczna (nie wymaga logowania).</p>
             </div>
           </div>
 
