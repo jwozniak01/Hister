@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ExtendedTrackInfo, fetchRandomTrack } from '@/lib/game-service';
-import { Loader2, Music, CheckCircle2, Trophy, RotateCcw, Play, Pause } from 'lucide-react';
+import { Loader2, Music, CheckCircle2, Trophy, RotateCcw, Play, Pause, Volume2 } from 'lucide-react';
 
 type GameState = 'LOADING' | 'READY' | 'PLAYING' | 'REVEALED' | 'GAME_OVER';
 
@@ -24,6 +24,7 @@ function GameContent() {
     // Audio Player State
     const audioRef = useRef<HTMLAudioElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [volume, setVolume] = useState(0.5);
 
     // Scores
     const [teamA, setTeamA] = useState<TeamScore>({ name: 'Drużyna A', score: 0 });
@@ -55,9 +56,16 @@ function GameContent() {
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
+            audioRef.current.volume = volume;
         }
         setIsPlaying(false);
     }, [currentTrack]);
+
+    useEffect(() => {
+        if (audioRef.current) {
+            audioRef.current.volume = volume;
+        }
+    }, [volume]);
 
     const loadNextRound = async () => {
         setIsPlaying(false);
@@ -219,7 +227,7 @@ function GameContent() {
 
                                     {/* Wizualizacja - pulsujący okrąg gdy gra */}
                                     {isPlaying && (
-                                        <div className="absolute inset-0 rounded-full border-4 border-white/20 animate-ping"></div>
+                                        <div className="absolute inset-0 rounded-full border-4 border-white/20 animate-ping pointer-events-none"></div>
                                     )}
                                 </>
                             ) : (
@@ -229,6 +237,22 @@ function GameContent() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Volume Control */}
+                        {currentTrack.previewUrl && (
+                            <div className="flex items-center gap-3 w-64 bg-gray-800/80 px-4 py-2 rounded-full border border-gray-700">
+                                <Volume2 size={20} className="text-gray-400" />
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={volume}
+                                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                                    className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-purple-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:hover:bg-purple-400"
+                                />
+                            </div>
+                        )}
 
                         <div className="flex gap-4">
                              <button
