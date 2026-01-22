@@ -7,37 +7,44 @@ import { Play } from 'lucide-react';
 export default function Home() {
   const router = useRouter();
 
+  const [gameMode, setGameMode] = useState<'classic' | 'single' | 'battle'>('classic');
   const [customPlaylistUrl, setCustomPlaylistUrl] = useState('');
+  const [customPlaylistUrl2, setCustomPlaylistUrl2] = useState('');
   const [winningScore, setWinningScore] = useState(20);
   const [teamCount, setTeamCount] = useState(2);
   const [duration, setDuration] = useState(30);
 
+  const extractPlaylistId = (url: string) => {
+      const match = url.match(/playlist\/([0-9]+)/);
+      if (match && match[1]) return match[1];
+      if (/^\d+$/.test(url)) return url;
+      return null;
+  };
+
   const startGame = () => {
-    let playlistId = '';
+    const playlistId1 = extractPlaylistId(customPlaylistUrl);
 
-    if (customPlaylistUrl) {
-      // Wyciągnij ID z linku (np. https://www.deezer.com/pl/playlist/1234567890)
-      // Obsługa formatu Deezer
-      const match = customPlaylistUrl.match(/playlist\/([0-9]+)/);
-
-      if (match && match[1]) {
-        playlistId = match[1];
-      } else {
-         // Fallback: czy user wpisał samo ID (same cyfry)?
-         if (/^\d+$/.test(customPlaylistUrl)) {
-             playlistId = customPlaylistUrl;
-         } else {
-             alert("Nieprawidłowy link do playlisty Deezer.\nUżyj formatu: https://www.deezer.com/pl/playlist/123456");
-             return;
-         }
-      }
-    } else {
-        alert("Wklej link do playlisty!");
+    if (!playlistId1) {
+        alert("Wklej poprawny link do playlisty 1!");
         return;
     }
 
+    let playlistId2 = '';
+    if (gameMode === 'battle') {
+        const p2 = extractPlaylistId(customPlaylistUrl2);
+        if (!p2) {
+             alert("Wklej poprawny link do playlisty 2!");
+             return;
+        }
+        playlistId2 = p2;
+    }
+
+    let teams = teamCount;
+    if (gameMode === 'single') teams = 1;
+    if (gameMode === 'battle') teams = 2; // Fixed for battle
+
     // Przekazujemy ustawienia w URL do strony gry
-    router.push(`/game?playlistId=${playlistId}&targetScore=${winningScore}&teamCount=${teamCount}&duration=${duration}`);
+    router.push(`/game?playlistId=${playlistId1}&targetScore=${winningScore}&teamCount=${teams}&duration=${duration}&mode=${gameMode}&playlistId2=${playlistId2}`);
   };
 
   return (
@@ -50,10 +57,25 @@ export default function Home() {
 
         <div className="bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700 text-left space-y-6">
 
+          {/* Tryb Gry */}
+          <div className="flex bg-gray-900 p-1 rounded-xl mb-6">
+             <button onClick={() => setGameMode('classic')} className={`flex-1 py-2 rounded-lg font-bold transition ${gameMode === 'classic' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>
+                Klasyczny (Drużyny)
+             </button>
+             <button onClick={() => setGameMode('single')} className={`flex-1 py-2 rounded-lg font-bold transition ${gameMode === 'single' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>
+                Jeden Gracz
+             </button>
+             <button onClick={() => setGameMode('battle')} className={`flex-1 py-2 rounded-lg font-bold transition ${gameMode === 'battle' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>
+                Pojedynek Playlist
+             </button>
+          </div>
+
           {/* Wybór playlisty */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Link do Playlisty Deezer</label>
+          <div className="space-y-4">
             <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                    {gameMode === 'battle' ? 'Playlista Gracza 1' : 'Link do Playlisty Deezer'}
+                </label>
                 <input
                     type="text"
                     placeholder="Wklej link (https://www.deezer.com/pl/playlist/...)"
@@ -61,8 +83,22 @@ export default function Home() {
                     onChange={(e) => setCustomPlaylistUrl(e.target.value)}
                     className="w-full p-4 rounded-lg bg-gray-900 border border-gray-600 focus:border-purple-500 focus:outline-none text-white placeholder-gray-500 transition-all"
                 />
-                <p className="text-xs text-gray-500 mt-2">Playlista musi być publiczna (nie wymaga logowania).</p>
             </div>
+
+            {gameMode === 'battle' && (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Playlista Gracza 2</label>
+                    <input
+                        type="text"
+                        placeholder="Wklej link do DRUGIEJ playlisty"
+                        value={customPlaylistUrl2}
+                        onChange={(e) => setCustomPlaylistUrl2(e.target.value)}
+                        className="w-full p-4 rounded-lg bg-gray-900 border border-gray-600 focus:border-purple-500 focus:outline-none text-white placeholder-gray-500 transition-all"
+                    />
+                </div>
+            )}
+
+            <p className="text-xs text-gray-500">Playlista musi być publiczna (nie wymaga logowania).</p>
           </div>
 
           {/* Wybór punktów */}
@@ -81,21 +117,23 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Liczba drużyn */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-3">Liczba drużyn</label>
-            <div className="flex justify-between gap-2">
-                {[2, 3, 4, 5, 6].map(count => (
-                    <button
-                        key={count}
-                        onClick={() => setTeamCount(count)}
-                        className={`flex-1 py-3 rounded-lg font-bold border transition ${teamCount === count ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'}`}
-                    >
-                        {count}
-                    </button>
-                ))}
-            </div>
-          </div>
+          {/* Liczba drużyn (Tylko w trybie klasycznym) */}
+          {gameMode === 'classic' && (
+              <div className="animate-in fade-in">
+                <label className="block text-sm font-medium text-gray-300 mb-3">Liczba drużyn</label>
+                <div className="flex justify-between gap-2">
+                    {[2, 3, 4, 5, 6].map(count => (
+                        <button
+                            key={count}
+                            onClick={() => setTeamCount(count)}
+                            className={`flex-1 py-3 rounded-lg font-bold border transition ${teamCount === count ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'}`}
+                        >
+                            {count}
+                        </button>
+                    ))}
+                </div>
+              </div>
+          )}
 
           {/* Długość fragmentu */}
           <div>

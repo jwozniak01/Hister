@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ExtendedTrackInfo, fetchPlaylistTracks, fetchTrackDetails } from '@/lib/game-service';
 import { Loader2, Music, CheckCircle2, Trophy, RotateCcw, Play, Pause, Volume2 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 type GameState = 'LOADING' | 'READY' | 'PLAYING' | 'REVEALED' | 'GAME_OVER';
 
@@ -15,6 +16,8 @@ interface TeamScore {
 function GameContent() {
     const searchParams = useSearchParams();
     const playlistId = searchParams.get('playlistId');
+    const playlistId2 = searchParams.get('playlistId2');
+    const gameMode = searchParams.get('mode') || 'classic';
     const targetScore = parseInt(searchParams.get('targetScore') || '20', 10);
     const teamCount = parseInt(searchParams.get('teamCount') || '2', 10);
     const duration = parseInt(searchParams.get('duration') || '30', 10);
@@ -23,8 +26,8 @@ function GameContent() {
     const [currentTrack, setCurrentTrack] = useState<ExtendedTrackInfo | null>(null);
     const [error, setError] = useState<string | null>(null);
 
-    // Playlist queue
-    const [queue, setQueue] = useState<ExtendedTrackInfo[]>([]);
+    // Playlist queues (Array of arrays for battle mode)
+    const [queues, setQueues] = useState<ExtendedTrackInfo[][]>([]);
     const [isQueueLoaded, setIsQueueLoaded] = useState(false);
 
     // Audio Player State
@@ -40,11 +43,41 @@ function GameContent() {
     // Initialize teams
     useEffect(() => {
         const initialTeams = Array.from({ length: teamCount }, (_, i) => ({
-            name: `Drużyna ${String.fromCharCode(65 + i)}`, // A, B, C, ...
+            name: gameMode === 'single' ? 'Gracz' : `Drużyna ${String.fromCharCode(65 + i)}`,
             score: 0
         }));
         setTeams(initialTeams);
-    }, [teamCount]);
+    }, [teamCount, gameMode]);
+
+    // Confetti effect
+    useEffect(() => {
+        if (gameState === 'GAME_OVER') {
+            const duration = 5000;
+            const end = Date.now() + duration;
+
+            const frame = () => {
+                confetti({
+                    particleCount: 5,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#a855f7', '#ec4899']
+                });
+                confetti({
+                    particleCount: 5,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#a855f7', '#ec4899']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            };
+            frame();
+        }
+    }, [gameState]);
 
     // Checkboxes for scoring
     const [points, setPoints] = useState({
@@ -63,26 +96,40 @@ function GameContent() {
             return;
         }
 
-        // Initialize Queue
-        const initQueue = async () => {
-             const tracks = await fetchPlaylistTracks(playlistId);
-             if (tracks.length > 0) {
-                 // Deduplicate
-                 const uniqueTracks = tracks.filter((item, index, self) =>
-                    index === self.findIndex((t) => t.id === item.id)
-                 );
-                 // Shuffle
-                 const shuffled = [...uniqueTracks].sort(() => Math.random() - 0.5);
-                 setQueue(shuffled);
-                 setIsQueueLoaded(true);
-             } else {
-                 setError("Nie udało się pobrać utworów z playlisty.");
-             }
+        const fetchAndPrepareQueue = async (pid: string) => {
+             const tracks = await fetchPlaylistTracks(pid);
+             if (tracks.length === 0) return [];
+             const unique = tracks.filter((item, index, self) => index === self.findIndex((t) => t.id === item.id));
+             return unique.sort(() => Math.random() - 0.5);
         };
 
-        initQueue();
+        const initQueues = async () => {
+            try {
+                const queue1 = await fetchAndPrepareQueue(playlistId);
+
+                let loadedQueues = [queue1];
+
+                if (gameMode === 'battle' && playlistId2) {
+                    const queue2 = await fetchAndPrepareQueue(playlistId2);
+                    loadedQueues = [queue1, queue2];
+                }
+
+                if (loadedQueues.some(q => q.length > 0)) {
+                    setQueues(loadedQueues);
+                    setIsQueueLoaded(true);
+                } else {
+                    setError("Nie udało się pobrać utworów.");
+                }
+
+            } catch (e) {
+                console.error(e);
+                setError("Błąd pobierania playlist.");
+            }
+        };
+
+        initQueues();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [playlistId]);
+    }, [playlistId, playlistId2, gameMode]);
 
     useEffect(() => {
         if (isQueueLoaded) {
@@ -115,17 +162,34 @@ function GameContent() {
         setError(null);
         setPoints({ title: false, artist: false, album: false, year: false, popularity: false });
 
-        if (queue.length === 0) {
-            if (isQueueLoaded) {
-                 setWinner("KONIEC GRY (Brak utworów)"); // Or handle draw/end
-                 setGameState('GAME_OVER');
-            }
-            return;
+        // Determine which queue to use
+        let queueIndex = 0;
+        if (gameMode === 'battle') {
+            queueIndex = currentTeamIndex % 2;
         }
 
-        const nextTrackBasic = queue[0];
-        const remainingQueue = queue.slice(1);
-        setQueue(remainingQueue);
+        const activeQueue = queues[queueIndex] || queues[0];
+
+        if (!activeQueue || activeQueue.length === 0) {
+            // Check if ALL queues are empty or just this one?
+            // Simple logic: if active queue is empty, game over (or skip turn?)
+            // For now: Game Over
+             setWinner("KONIEC GRY (Brak utworów)");
+             setGameState('GAME_OVER');
+             return;
+        }
+
+        const nextTrackBasic = activeQueue[0];
+        const newActiveQueue = activeQueue.slice(1);
+
+        // Update queues state
+        const newQueues = [...queues];
+        if (gameMode === 'battle') {
+             newQueues[queueIndex] = newActiveQueue;
+        } else {
+             newQueues[0] = newActiveQueue;
+        }
+        setQueues(newQueues);
 
         // Fetch details for the track (year, full artists)
         const details = await fetchTrackDetails(nextTrackBasic.id);
@@ -365,16 +429,16 @@ function GameContent() {
                             <div className="flex-1 space-y-4">
                                 <div>
                                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Tytuł</div>
-                                    <div className="text-3xl font-bold text-white">{currentTrack.title}</div>
+                                    <div className="text-3xl font-bold text-white leading-tight">{currentTrack.title}</div>
                                 </div>
                                 <div>
                                     <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Wykonawca</div>
-                                    <div className="text-2xl text-purple-300">{currentTrack.artist}</div>
+                                    <div className="text-2xl text-purple-300 leading-tight">{currentTrack.artist}</div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Album</div>
-                                        <div className="text-lg text-gray-300">{currentTrack.album}</div>
+                                        <div className="text-lg text-gray-300 leading-tight">{currentTrack.album}</div>
                                     </div>
                                     <div>
                                         <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">Rok</div>
