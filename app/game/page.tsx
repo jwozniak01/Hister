@@ -57,17 +57,19 @@ function GameContent() {
             const end = Date.now() + duration;
 
             import('@/lib/confetti').then((mod) => {
-                const confetti = mod.default || mod;
+                // Używamy .create z useWorker: false, aby uniknąć problemów z serializacją kodu w Next.js/Webpack
+                const createConfetti = mod.create || mod.default.create;
+                const fire = createConfetti(null, { resize: true, useWorker: false });
 
                 const frame = () => {
-                    confetti({
+                    fire({
                         particleCount: 5,
                         angle: 60,
                         spread: 55,
                         origin: { x: 0 },
                         colors: ['#a855f7', '#ec4899']
                     });
-                    confetti({
+                    fire({
                         particleCount: 5,
                         angle: 120,
                         spread: 55,
