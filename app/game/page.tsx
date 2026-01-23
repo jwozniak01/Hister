@@ -1,9 +1,10 @@
 'use client';
 
 import { Suspense, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ExtendedTrackInfo, fetchPlaylistTracks, fetchTrackDetails } from '@/lib/game-service';
-import { Loader2, Music, CheckCircle2, Trophy, RotateCcw, Play, Pause, Volume2 } from 'lucide-react';
+import { Loader2, Music, CheckCircle2, Trophy, RotateCcw, Play, Pause, Volume2, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 type GameState = 'LOADING' | 'READY' | 'PLAYING' | 'REVEALED' | 'GAME_OVER';
 
@@ -38,6 +39,7 @@ function GameContent() {
     // Scores
     const [teams, setTeams] = useState<TeamScore[]>([]);
     const [currentTeamIndex, setCurrentTeamIndex] = useState(0);
+    const [totalRounds, setTotalRounds] = useState(0); // For single player stats
 
     // Initialize teams
     useEffect(() => {
@@ -245,6 +247,16 @@ function GameContent() {
         }
     };
 
+    const handleSinglePlayerGuess = (guessed: boolean) => {
+        const newTeams = [...teams];
+        if (guessed) {
+            newTeams[0].score += 1;
+        }
+        setTeams(newTeams);
+        setTotalRounds(prev => prev + 1);
+        loadNextRound();
+    };
+
     const submitPoints = () => {
         let roundPoints = 0;
         if (points.title) roundPoints++;
@@ -257,7 +269,8 @@ function GameContent() {
         newTeams[currentTeamIndex].score += roundPoints;
         setTeams(newTeams);
 
-        if (newTeams[currentTeamIndex].score >= targetScore) {
+        // In Single Player mode, we don't end by score, only by queue empty
+        if (gameMode !== 'single' && newTeams[currentTeamIndex].score >= targetScore) {
             setWinner(newTeams[currentTeamIndex].name);
             setGameState('GAME_OVER');
             return;
@@ -281,14 +294,25 @@ function GameContent() {
         return (
              <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white p-8 text-center">
                 <Trophy size={80} className="text-yellow-400 mb-6 animate-bounce" />
-                <h1 className="text-5xl font-black mb-4">WYGRYWA {winner}!</h1>
-                <div className="flex gap-8 text-2xl font-bold mb-8 flex-wrap justify-center">
-                    {teams.map((team, index) => (
-                        <div key={index} className="text-gray-300">
-                            {team.name}: <span className="text-white">{team.score}</span>
+                {gameMode === 'single' ? (
+                    <>
+                        <h1 className="text-5xl font-black mb-4">KONIEC GRY!</h1>
+                        <div className="text-3xl font-bold mb-8 text-gray-300">
+                            Twój wynik: <span className="text-white">{teams[0]?.score}</span> / {totalRounds}
                         </div>
-                    ))}
-                </div>
+                    </>
+                ) : (
+                    <>
+                        <h1 className="text-5xl font-black mb-4">WYGRYWA {winner}!</h1>
+                        <div className="flex gap-8 text-2xl font-bold mb-8 flex-wrap justify-center">
+                            {teams.map((team, index) => (
+                                <div key={index} className="text-gray-300">
+                                    {team.name}: <span className="text-white">{team.score}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
                 <button onClick={() => window.location.href = '/'} className="bg-white text-black px-8 py-3 rounded-full font-bold hover:scale-105 transition">Wróć do Menu</button>
              </div>
         )
@@ -299,7 +323,9 @@ function GameContent() {
             {/* Lewy panel - Wyniki */}
             <div className="w-1/4 bg-gray-800 p-6 flex flex-col justify-between border-r border-gray-700 overflow-y-auto">
                 <div>
-                    <h1 className="text-2xl font-black italic tracking-widest text-gray-500 mb-10">HISTER</h1>
+                    <Link href="/">
+                        <h1 className="text-2xl font-black italic tracking-widest text-gray-500 mb-10 hover:text-white transition-colors cursor-pointer">HISTER</h1>
+                    </Link>
 
                     <div className="space-y-4">
                         {teams.map((team, index) => (
@@ -459,41 +485,60 @@ function GameContent() {
                         </div>
 
                         <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700">
-                            <h3 className="text-xl font-bold mb-4 text-center">Przyznaj Punkty</h3>
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
-                                <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.title ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
-                                    <input type="checkbox" className="hidden" checked={points.title} onChange={() => setPoints({...points, title: !points.title})} />
-                                    <CheckCircle2 className={points.title ? 'text-green-500' : 'text-gray-500'} />
-                                    <span className="font-bold">Tytuł</span>
-                                </label>
-                                <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.artist ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
-                                    <input type="checkbox" className="hidden" checked={points.artist} onChange={() => setPoints({...points, artist: !points.artist})} />
-                                    <CheckCircle2 className={points.artist ? 'text-green-500' : 'text-gray-500'} />
-                                    <span className="font-bold">Wykonawca</span>
-                                </label>
-                                <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.album ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
-                                    <input type="checkbox" className="hidden" checked={points.album} onChange={() => setPoints({...points, album: !points.album})} />
-                                    <CheckCircle2 className={points.album ? 'text-green-500' : 'text-gray-500'} />
-                                    <span className="font-bold">Album</span>
-                                </label>
-                                <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.year ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
-                                    <input type="checkbox" className="hidden" checked={points.year} onChange={() => setPoints({...points, year: !points.year})} />
-                                    <CheckCircle2 className={points.year ? 'text-green-500' : 'text-gray-500'} />
-                                    <span className="font-bold">Rok</span>
-                                </label>
-                                <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.popularity ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
-                                    <input type="checkbox" className="hidden" checked={points.popularity} onChange={() => setPoints({...points, popularity: !points.popularity})} />
-                                    <CheckCircle2 className={points.popularity ? 'text-green-500' : 'text-gray-500'} />
-                                    <span className="font-bold">Popularność</span>
-                                </label>
-                            </div>
+                            {gameMode === 'single' ? (
+                                <div className="flex gap-4 justify-center">
+                                    <button
+                                        onClick={() => handleSinglePlayerGuess(false)}
+                                        className="flex-1 py-4 bg-red-600 hover:bg-red-700 rounded-xl font-bold text-xl shadow-lg transition flex items-center justify-center gap-2"
+                                    >
+                                        <ThumbsDown /> NIE ZGADŁEM
+                                    </button>
+                                    <button
+                                        onClick={() => handleSinglePlayerGuess(true)}
+                                        className="flex-1 py-4 bg-green-600 hover:bg-green-700 rounded-xl font-bold text-xl shadow-lg transition flex items-center justify-center gap-2"
+                                    >
+                                        <ThumbsUp /> ZGADŁEM
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <h3 className="text-xl font-bold mb-4 text-center">Przyznaj Punkty</h3>
+                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+                                        <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.title ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
+                                            <input type="checkbox" className="hidden" checked={points.title} onChange={() => setPoints({...points, title: !points.title})} />
+                                            <CheckCircle2 className={points.title ? 'text-green-500' : 'text-gray-500'} />
+                                            <span className="font-bold">Tytuł</span>
+                                        </label>
+                                        <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.artist ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
+                                            <input type="checkbox" className="hidden" checked={points.artist} onChange={() => setPoints({...points, artist: !points.artist})} />
+                                            <CheckCircle2 className={points.artist ? 'text-green-500' : 'text-gray-500'} />
+                                            <span className="font-bold">Wykonawca</span>
+                                        </label>
+                                        <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.album ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
+                                            <input type="checkbox" className="hidden" checked={points.album} onChange={() => setPoints({...points, album: !points.album})} />
+                                            <CheckCircle2 className={points.album ? 'text-green-500' : 'text-gray-500'} />
+                                            <span className="font-bold">Album</span>
+                                        </label>
+                                        <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.year ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
+                                            <input type="checkbox" className="hidden" checked={points.year} onChange={() => setPoints({...points, year: !points.year})} />
+                                            <CheckCircle2 className={points.year ? 'text-green-500' : 'text-gray-500'} />
+                                            <span className="font-bold">Rok</span>
+                                        </label>
+                                        <label className={`cursor-pointer p-4 rounded-xl border-2 transition flex flex-col items-center gap-2 ${points.popularity ? 'border-green-500 bg-green-500/20' : 'border-gray-600 hover:border-gray-500'}`}>
+                                            <input type="checkbox" className="hidden" checked={points.popularity} onChange={() => setPoints({...points, popularity: !points.popularity})} />
+                                            <CheckCircle2 className={points.popularity ? 'text-green-500' : 'text-gray-500'} />
+                                            <span className="font-bold">Popularność</span>
+                                        </label>
+                                    </div>
 
-                            <button
-                                onClick={submitPoints}
-                                className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl font-bold text-xl shadow-lg transform transition hover:scale-[1.01]"
-                            >
-                                ZATWIERDŹ WYNIK (+{Object.values(points).filter(Boolean).length})
-                            </button>
+                                    <button
+                                        onClick={submitPoints}
+                                        className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl font-bold text-xl shadow-lg transform transition hover:scale-[1.01]"
+                                    >
+                                        ZATWIERDŹ WYNIK (+{Object.values(points).filter(Boolean).length})
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}
