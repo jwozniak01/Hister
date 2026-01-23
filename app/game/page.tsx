@@ -4,7 +4,6 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ExtendedTrackInfo, fetchPlaylistTracks, fetchTrackDetails } from '@/lib/game-service';
 import { Loader2, Music, CheckCircle2, Trophy, RotateCcw, Play, Pause, Volume2 } from 'lucide-react';
-import confetti from 'canvas-confetti';
 
 type GameState = 'LOADING' | 'READY' | 'PLAYING' | 'REVEALED' | 'GAME_OVER';
 
@@ -55,27 +54,31 @@ function GameContent() {
             const duration = 5000;
             const end = Date.now() + duration;
 
-            const frame = () => {
-                confetti({
-                    particleCount: 5,
-                    angle: 60,
-                    spread: 55,
-                    origin: { x: 0 },
-                    colors: ['#a855f7', '#ec4899']
-                });
-                confetti({
-                    particleCount: 5,
-                    angle: 120,
-                    spread: 55,
-                    origin: { x: 1 },
-                    colors: ['#a855f7', '#ec4899']
-                });
+            import('canvas-confetti').then((mod) => {
+                const confetti = mod.default || mod;
 
-                if (Date.now() < end) {
-                    requestAnimationFrame(frame);
-                }
-            };
-            frame();
+                const frame = () => {
+                    confetti({
+                        particleCount: 5,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 },
+                        colors: ['#a855f7', '#ec4899']
+                    });
+                    confetti({
+                        particleCount: 5,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 },
+                        colors: ['#a855f7', '#ec4899']
+                    });
+
+                    if (Date.now() < end) {
+                        requestAnimationFrame(frame);
+                    }
+                };
+                frame();
+            });
         }
     }, [gameState]);
 
