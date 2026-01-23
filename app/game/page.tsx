@@ -161,7 +161,7 @@ function GameContent() {
         }
     }, [volume]);
 
-    const loadNextRound = async () => {
+    const loadNextRound = async (overrideTeamIndex?: number) => {
         setIsPlaying(false);
         setGameState('LOADING');
         setError(null);
@@ -169,8 +169,10 @@ function GameContent() {
 
         // Determine which queue to use
         let queueIndex = 0;
+        const activeTeamIndex = typeof overrideTeamIndex === 'number' ? overrideTeamIndex : currentTeamIndex;
+
         if (gameMode === 'battle') {
-            queueIndex = currentTeamIndex % 2;
+            queueIndex = activeTeamIndex % 2;
         }
 
         const activeQueue = queues[queueIndex] || queues[0];
@@ -276,8 +278,9 @@ function GameContent() {
             return;
         }
 
-        setCurrentTeamIndex((prev) => (prev + 1) % teams.length);
-        loadNextRound();
+        const nextTeamIndex = (currentTeamIndex + 1) % teams.length;
+        setCurrentTeamIndex(nextTeamIndex);
+        loadNextRound(nextTeamIndex);
     };
 
     if (error) {
@@ -285,7 +288,7 @@ function GameContent() {
             <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white p-8 text-center">
                 <h2 className="text-2xl text-red-500 font-bold mb-4">Ups! Coś poszło nie tak</h2>
                 <p className="mb-6">{error}</p>
-                <button onClick={loadNextRound} className="bg-purple-600 px-6 py-2 rounded-lg hover:bg-purple-700 transition">Spróbuj ponownie</button>
+                <button onClick={() => loadNextRound()} className="bg-purple-600 px-6 py-2 rounded-lg hover:bg-purple-700 transition">Spróbuj ponownie</button>
             </div>
         );
     }
@@ -443,7 +446,7 @@ function GameContent() {
                                 <Music size={24} /> POKAŻ ODPOWIEDŹ
                              </button>
                              <button
-                                onClick={loadNextRound}
+                                onClick={() => loadNextRound()}
                                 className="bg-gray-700 text-white px-6 py-4 rounded-xl font-bold hover:bg-gray-600 transition"
                              >
                                 <RotateCcw size={24} />
