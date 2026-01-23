@@ -54,7 +54,7 @@ function GameContent() {
             const duration = 5000;
             const end = Date.now() + duration;
 
-            import('canvas-confetti').then((mod) => {
+            import('@/lib/confetti').then((mod) => {
                 const confetti = mod.default || mod;
 
                 const frame = () => {
